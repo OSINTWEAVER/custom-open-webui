@@ -1,0 +1,44 @@
+# OpenAPI Servers Configuration for Open WebUI
+# This file contains the configuration for OpenAPI tool servers
+
+openapi_servers:
+  - name: "OSINT Tools"
+    url: "http://localhost:8001"
+    description: "OSINT investigation tools including domain analysis, URL parsing, crypto utilities"
+    enabled: true
+    auth_type: "none"
+    categories:
+      - "osint"
+      - "domain-analysis"  
+      - "crypto"
+      - "url-analysis"
+    tools:
+      - "Domain WHOIS lookup"
+      - "DNS record retrieval"
+      - "URL analysis and risk assessment"
+      - "Hash calculation (MD5, SHA1, SHA256, SHA512)"
+      - "Base64 encoding/decoding"
+      - "IP address analysis"
+      - "Social media username checking"
+      - "Wayback Machine archive checking"
+
+  - name: "MCP Proxy"
+    url: "http://localhost:8002"
+    description: "Model Context Protocol tools via OpenAPI proxy"
+    enabled: true
+    auth_type: "none"
+    categories:
+      - "mcp"
+      - "time"
+      - "filesystem"
+    tools:
+      - "Current time and date"
+      - "Timezone conversions"
+      - "File system operations"
+      - "Git repository tools"
+
+# Configuration notes:
+# - These servers are automatically started with docker-compose
+# - URLs use internal Docker networking when accessed from Open WebUI
+# - External access uses localhost URLs for testing
+# - Additional MCP servers can be configured via MCP_SERVER_CMD environment variable
