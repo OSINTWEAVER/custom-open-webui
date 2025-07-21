@@ -5,14 +5,15 @@ WORKDIR /app
 # Install uv for faster package management
 RUN pip install uv
 
-# Install mcpo and common MCP servers
-RUN uv pip install --system mcpo mcp-server-time mcp-server-filesystem
+# Install mcpo and available MCP servers
+RUN uv pip install --system mcpo mcp-server-time
 
-# Install additional useful MCP servers
+# Install additional useful MCP servers (using || true to continue if some fail)
 RUN uv pip install --system mcp-server-git mcp-server-sqlite || true
 
-# Create entrypoint script
+# Create entrypoint script and config
 COPY entrypoint.sh /entrypoint.sh
+COPY config.json /app/config.json
 RUN chmod +x /entrypoint.sh
 
 # Expose the port

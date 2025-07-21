@@ -72,8 +72,8 @@ echo ""
 
 # Pull the primary OSINT model
 echo "🧠 Setting up primary OSINT model..."
-pull_model "gemma3:12b-it-q8_0" \
-           "Gemma 3 12B Instruct (Q8_0)"
+pull_model "gemma3:12b-it-qat" \
+           "Gemma 3 12B Instruct (qat)"
 
 # Pull the embeddings model
 echo ""
@@ -98,12 +98,12 @@ fi
 
 echo ""
 echo "🔧 Configuration Summary:"
-echo "   • Primary Model: gemma3-12b-it-q8_0"
+echo "   • Primary Model: gemma3-12b-it-qat"
 echo "   • Embeddings: snowflake-arctic-embed2"
 echo "   • Server: $OLLAMA_URL"
 echo ""
 echo "📖 Next Steps:"
 echo "   1. Start the OSINT platform: docker compose up -d"
 echo "   2. Access Open WebUI: http://localhost:3000"
-echo "   3. Select 'gemma3-12b-it-q8_0' as your default model"
+echo "   3. Select 'gemma3-12b-it-qat' as your default model"
 echo "   4. Test RAG functionality with OSINT sources"

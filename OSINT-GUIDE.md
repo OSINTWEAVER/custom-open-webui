@@ -1,10 +1,10 @@
-# OSINT Guide: Actually Using This Thing for Investigations
+# OSINT Guide: Using Open WebUI for Investigations
 
-So you've got the platform running - now what? This guide covers how to actually use this setup for real OSINT work without shooting yourself in the foot.
+This guide covers how to use this Open WebUI configuration for OSINT work effectively and safely.
 
-## 🎯 Why This Setup Rocks for OSINT
+## 🎯 Why This Configuration Works for OSINT
 
-Look, most AI platforms are built for general chatbots or coding help. This one is specifically configured for investigations:
+This Open WebUI setup is specifically configured for investigations:
 
 - **No digital footprints**: Everything uses privacy-focused search engines
 - **Historical data access**: Built-in Archive.org and Wayback Machine
@@ -41,13 +41,15 @@ This setup connects to an external Ollama server instead of running it locally:
 - **Primary**: `http://192.168.2.241:11434`
 - **Fallback**: `http://host.docker.internal:11434` (for localhost)
 
-### Supported Models for OSINT
+### Supported Models for Investigation Work
 
-This platform is configured with specific models optimized for investigative work:
+This configuration is optimized with specific models for investigative work:
 
 #### Primary Models
 
-- **Default**: `gemma3:12b-it-q8_0` - Google's Gemma 3 12B Instruct model with Q8 quantization
+- **Default**: `gemma3:12b-it-qat` - Google's Gemma 3 12B Instruct model with QAT quantization
+  - **Recommended Settings**: Max Tokens: 16000, Temperature: 0.5
+  - **Best for**: Detailed analysis, report generation, complex reasoning tasks
 - **Alternative**: `mistral-small-osint` - Mistral Small with anti-slop tuning for factual analysis
 - **Embeddings**: `snowflake-arctic-embed2` - High-quality document embeddings for RAG
 
@@ -55,7 +57,7 @@ This platform is configured with specific models optimized for investigative wor
 
 ```bash
 # Pull the recommended models
-ollama pull gemma3:12b-it-q8_0
+ollama pull gemma3:12b-it-qat
 ollama pull snowflake-arctic-embed2
 
 # Optional: Mistral alternative  
@@ -97,62 +99,157 @@ Your goal is to support thorough, ethical, and accurate open-source investigatio
 3. **Save** - this will apply to all new chats
 4. **For existing chats**: You can manually add this prompt at the start
 
-## �️ Built-in OSINT Tools
+## 🛠️ Built-in OSINT Tools
 
-This platform includes custom OpenAPI tool servers specifically designed for OSINT investigations. These tools are automatically available in your chats.
+This platform includes custom OpenAPI tool servers specifically designed for OSINT investigations. These tools require manual configuration after platform deployment.
+
+### Critical Setup Required
+
+**⚠️ Important**: These tools require manual import after platform deployment. The containers run automatically, but Open WebUI requires explicit function imports.
+
+**Step 1: Import OSINT Tools**
+1. Navigate to **Admin Panel** > **Tools** > **Functions**
+2. Click **+ Import Function**
+3. Select **Import from OpenAPI URL**
+4. Enter: `http://open-webui-osint-tools:8001/openapi.json`
+5. Click **Import** - should import 9 tools
+
+**Step 2: Import MCP Tools (Optional)**
+1. In the same Functions panel
+2. Click **+ Import Function** again
+3. Select **Import from OpenAPI URL**
+4. Enter: `http://open-webui-mcp-proxy:8002/openapi.json`
+5. Click **Import** - adds MCP framework tools
+
+**Step 3: Verify Import**
+- Check that tools appear in your Functions list
+- Should see: Domain WHOIS, DNS Lookup, URL Analysis, Hash Tools, IP Analysis, Social Media Check, Wayback Machine, and MCP Time tools
 
 ### OSINT Tools Server
 
 **Access**: Available as tools in chat or directly at <http://localhost:8001/docs>
 
 **Domain Intelligence:**
-- **WHOIS Lookup**: Get domain registration details, registrar, creation/expiration dates
+- **WHOIS Lookup**: Get domain registration details, registrar, creation/expiration dates, name servers
 - **DNS Analysis**: Retrieve A, AAAA, MX, NS, TXT, CNAME records for any domain
-- Use for: Identifying domain ownership, infrastructure analysis, finding associated assets
+- **Use cases**: Identifying domain ownership, infrastructure analysis, finding associated assets, passive reconnaissance
 
 **URL & Web Analysis:**
-- **URL Structure Analysis**: Parse domains, subdomains, paths, query parameters
-- **Risk Assessment**: Detect suspicious patterns, URL shorteners, malicious indicators
-- **Archive Checking**: Check Wayback Machine for historical snapshots
-- Use for: Investigating suspicious links, tracking domain history, web forensics
+- **URL Structure Analysis**: Parse domains, subdomains, paths, query parameters automatically
+- **Risk Assessment**: Detect suspicious patterns, URL shorteners, malicious indicators, excessive hyphens
+- **Archive Checking**: Check Wayback Machine for historical snapshots and availability
+- **Use cases**: Investigating suspicious links, tracking domain history, web forensics, phishing analysis
 
 **Cryptographic Analysis:**
-- **Hash Calculation**: Generate MD5, SHA1, SHA256, SHA512 hashes
-- **Base64 Encoding/Decoding**: Handle encoded communications and data
-- Use for: File integrity verification, malware analysis, encoded message analysis
+- **Hash Calculation**: Generate MD5, SHA1, SHA256, SHA512 hashes for any text input
+- **Base64 Encoding/Decoding**: Handle encoded communications and data safely
+- **Use cases**: File integrity verification, malware analysis, encoded message analysis, data validation
 
 **Network Intelligence:**
-- **IP Analysis**: Classify private/public IPs, perform reverse DNS lookups
-- **Social Media Scanning**: Check username availability across major platforms
-- Use for: Infrastructure mapping, social media reconnaissance, identity correlation
+- **IP Analysis**: Classify private/public IPs, perform reverse DNS lookups, version detection
+- **Social Media Scanning**: Check username availability across 8 major platforms (Twitter, Instagram, GitHub, Reddit, LinkedIn, YouTube, TikTok, Facebook)
+- **Use cases**: Infrastructure mapping, social media reconnaissance, identity correlation, account discovery
 
 ### MCP Tool Proxy
 
 **Access**: Available as tools in chat or directly at <http://localhost:8002/docs>
 
 **Time & Date Tools:**
-- Current time and date information
-- Timezone conversions and calculations
-- Use for: Timeline analysis, coordinating across time zones
+- Current time and date information with timezone awareness
+- Timezone conversions and calculations for international investigations
+- **Use cases**: Timeline analysis, coordinating across time zones, temporal correlation
 
 **File System Tools** (when enabled):
-- Safe file operations and analysis
-- Use for: Document processing, file forensics
+- Safe file operations and analysis within containerized environment
+- **Use cases**: Document processing, file forensics, evidence handling
 
 **Extensible Framework:**
-- Add any MCP-compatible tool server
-- Configure via `MCP_SERVER_CMD` environment variable
+- Add any MCP-compatible tool server via environment configuration
+- Configure via `MCP_SERVER_CMD` environment variable in docker-compose.yaml
+- **Use cases**: Custom tool integration, specialized investigation workflows
 
 ### Using Tools in Investigations
 
-**During a chat, enable tools by:**
-1. Starting a new conversation
-2. Enabling "Tools" in the chat interface  
-3. Ask questions that trigger tool usage:
-   - "Check the WHOIS information for example.com"
-   - "Analyze this URL for suspicious patterns: https://suspicious-link.com"
-   - "Calculate the SHA256 hash of this text: [suspicious content]"
-   - "Check if the username 'suspect123' exists on social media platforms"
+**Enable Tools for Each Conversation:**
+1. Start a new conversation in Open WebUI
+2. Click the "Tools" toggle in the chat interface (usually bottom toolbar)
+3. Select which specific tools to enable for this investigation
+4. Tools remain active for the duration of that conversation
+
+**Natural Language Tool Activation:**
+Ask questions that trigger tool usage automatically:
+
+```text
+"Check the WHOIS information for suspicious-domain.com"
+"Analyze this URL for risk patterns: https://bit.ly/xyz123"
+"Calculate the SHA256 hash of this text: [suspicious content]"
+"Check if the username 'target_person' exists on social media platforms"
+"Find archived versions of compromised-website.com from the Wayback Machine"
+"Get DNS A and MX records for corporate-target.com"
+"Is this IP address 192.168.1.100 private or public?"
+"Decode this Base64 string: U3VzcGljaW91cyBkYXRh"
+```
+
+**Integration with Investigation Workflow:**
+- Tools provide structured, verifiable data that integrates seamlessly with chat analysis
+- Results include confidence levels and source attribution
+- Data can be cross-referenced with web search and document analysis
+- Tool outputs are logged for investigation documentation
+
+### Manual Tool Testing
+
+**Verify OSINT Tools Functionality:**
+
+```bash
+# Test the comprehensive smoke test
+./test-openapi-tools.sh
+
+# Test individual endpoints manually
+curl "http://localhost:8001/tools/domain/whois?domain=example.com"
+curl "http://localhost:8001/tools/domain/dns?domain=example.com&record_type=A"
+curl "http://localhost:8001/tools/url/analyze?url=https://suspicious-site.com"
+curl "http://localhost:8001/tools/crypto/hash?text=test"
+curl "http://localhost:8001/tools/ip/analyze?ip=8.8.8.8"
+curl "http://localhost:8001/tools/osint/social_media_usernames?username=testuser"
+curl "http://localhost:8001/tools/osint/wayback_check?url=https://example.com"
+```
+
+**Verify MCP Proxy Functionality:**
+
+```bash
+# Test MCP proxy health
+curl http://localhost:8002/health
+
+# Test time tools (example)
+curl -X POST "http://localhost:8002/mcp/tools/current_time"
+```
+
+### Tool Configuration Troubleshooting
+
+**"Tools not showing in chat":**
+1. Verify tools are imported in Admin Panel > Tools > Functions
+2. Ensure "Tools" toggle is enabled in the conversation
+3. Check that specific tools are selected for the conversation
+
+**"Tool import failed":**
+1. Verify containers are running: `docker compose ps`
+2. Test tool endpoints directly: `curl http://localhost:8001/health`
+3. Use internal Docker URLs for import:
+   - **Investigation Tools**: Base URL `http://open-webui-osint-tools:8001` + Path `openapi.json`
+   - **MCP Time Tools**: Base URL `http://open-webui-mcp-proxy:8002/time` + Path `openapi.json`
+4. Check container logs: `docker compose logs open-webui-osint-tools`
+
+**"Tools timing out":**
+1. Check container resource allocation
+2. Verify network connectivity between containers
+3. Monitor tool response times: `./test-openapi-tools.sh`
+
+**Tool results accuracy:**
+- WHOIS data depends on domain registrar transparency
+- DNS lookups reflect current configurations (may miss historical data)
+- Social media checks are availability-based (not definitive proof of account ownership)
+- Wayback Machine results depend on archive.org indexing
+- Always cross-verify tool results with additional sources
 
 **Tools integrate seamlessly with your investigation workflow and provide structured, verifiable data.**
 
@@ -384,6 +481,137 @@ docker stats open-webui-redis open-webui-searxng open-webui-tika
 - Regular cache cleanup for sensitive investigations
 - Automated backup of important findings
 
+## 🎯 Practical OSINT Tool Usage Examples
+
+### Domain Investigation Workflow
+
+**Scenario**: Investigating a suspicious domain for phishing or malware
+
+```text
+1. "Check WHOIS information for suspicious-domain.com"
+   - Reveals registration date, registrar, nameservers
+   - Look for recent registration (red flag for phishing)
+   - Note privacy-protected vs. public registration data
+
+2. "Get DNS A, MX, and NS records for suspicious-domain.com"
+   - Identify hosting infrastructure and mail servers
+   - Compare with known legitimate domains
+   - Look for shared hosting with other suspicious domains
+
+3. "Analyze this URL for suspicious patterns: https://suspicious-domain.com/login"
+   - Detects URL shorteners, suspicious TLDs, long domain names
+   - Identifies path structures mimicking legitimate sites
+   - Flags potential typosquatting attempts
+
+4. "Check Wayback Machine for historical versions of suspicious-domain.com"
+   - Determine when domain was first archived
+   - Identify changes in content or purpose over time
+   - Find original or legitimate content before compromise
+```
+
+### Social Media Reconnaissance
+
+**Scenario**: Investigating an individual's online presence
+
+```text
+1. "Check if username 'target_username' exists on social media platforms"
+   - Systematically checks 8 major platforms
+   - Identifies consistent username usage patterns
+   - Reveals platform preferences and activity levels
+
+2. Cross-reference findings:
+   - Search: "target_username site:reddit.com" for post history
+   - Search: "target_username site:github.com" for technical profiles
+   - Upload any documents for name/email extraction
+   - Use hash tools to verify file integrity if suspicious
+```
+
+### Cryptographic Analysis for Evidence
+
+**Scenario**: Analyzing suspicious files or communications
+
+```text
+1. "Calculate SHA256 hash of this file content: [paste content]"
+   - Generate unique file fingerprint for evidence chain
+   - Compare against known malware databases
+   - Verify file integrity across different sources
+
+2. "Decode this Base64 string: [suspicious encoded data]"
+   - Reveal hidden communications or embedded data
+   - Analyze encoded payloads in phishing emails
+   - Decode configuration data from malware samples
+
+3. Cross-verify with web search:
+   - Search the calculated hash on VirusTotal or threat intel feeds
+   - Search decoded content for additional context
+```
+
+### Infrastructure Mapping
+
+**Scenario**: Mapping an organization's digital footprint
+
+```text
+1. "Analyze IP address 203.0.113.42"
+   - Classify as public/private, determine IP version
+   - Perform reverse DNS lookup for associated domains
+   - Identify hosting provider or organization
+
+2. "Get DNS records for corporate-domain.com"
+   - Map email infrastructure (MX records)
+   - Identify subdomains and services (A/AAAA records)
+   - Find CDN and security services (CNAME records)
+   - Analyze SPF/DKIM/DMARC policies (TXT records)
+
+3. Timeline correlation:
+   - Use MCP time tools for timezone conversion
+   - Correlate registration dates with business events
+   - Map infrastructure changes over time
+```
+
+## 🚨 OSINT Tool Best Practices
+
+### Data Validation and Cross-Referencing
+
+**Always verify tool results:**
+- WHOIS data may be privacy-protected or outdated
+- DNS records change frequently and may not reflect historical data
+- Social media availability doesn't confirm account ownership
+- Wayback Machine snapshots may be incomplete or missing
+
+**Cross-reference methodology:**
+1. Use multiple tools for same investigation target
+2. Correlate tool results with web search findings
+3. Verify against authoritative sources when possible
+4. Document confidence levels for each data point
+
+### Operational Security
+
+**Tool usage patterns:**
+- Space out queries to avoid rate limiting or detection
+- Use different investigation sessions for unrelated targets
+- Clear tool caches between sensitive investigations
+- Monitor tool response times for performance anomalies
+
+**Data handling:**
+- Screenshot or save tool results for evidence documentation
+- Use hash verification for file integrity throughout investigation
+- Maintain investigation logs with tool result timestamps
+- Sanitize data before sharing or reporting
+
+### Integration with Traditional OSINT
+
+**Combine tool results with manual techniques:**
+- Use tool-generated leads for deeper manual investigation
+- Verify automated findings through human analysis
+- Combine technical data with open source research
+- Cross-reference digital footprints with physical world data
+
+**Investigation workflow optimization:**
+1. Start with broad automated tool sweeps
+2. Focus manual effort on high-confidence tool results
+3. Use tools to verify manually discovered information
+4. Document complete methodology for reproducibility
+
 ## 🤝 OSINT Community Integration
 
 ### Sharing Configurations
@@ -395,3 +623,21 @@ docker stats open-webui-redis open-webui-searxng open-webui-tika
 - API endpoints for external OSINT tools
 - Export search results in various formats
 - Integration with evidence management systems
+- OpenAPI specifications for custom tool development
+
+### Contributing Tool Improvements
+- Report tool accuracy issues or false positives
+- Suggest additional OSINT tools for integration
+- Share custom MCP server configurations
+- Contribute to community knowledge base
+
+## Conclusion
+
+This Open WebUI configuration provides a powerful foundation for OSINT investigations while maintaining privacy and operational security. The combination of specialized tools, privacy-focused search engines, and local AI processing creates an effective investigation environment.
+
+**Remember**: Always verify information through multiple sources and maintain awareness of legal and ethical boundaries in your investigations.
+
+---
+
+**Author**: rick@osintweaver  
+**Provided without warranty by OSINTWEAVER**

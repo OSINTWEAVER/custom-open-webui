@@ -168,7 +168,7 @@ services:
           description: "Model Context Protocol tools via OpenAPI proxy"
       
       # Default Model Configuration
-      DEFAULT_MODELS: "gemma3:12b-it-q8_0"
+      DEFAULT_MODELS: "gemma3:12b-it-qat"
       MODEL_FILTER_ENABLED: "true"
       
       # OSINT & Investigation Features

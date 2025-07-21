@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "time": {
+      "command": "uv",
+      "args": ["run", "mcp-server-time", "--local-timezone=UTC"]
+    }
+  }
+}

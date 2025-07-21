@@ -63,7 +63,7 @@ if command -v curl >/dev/null 2>&1; then
         echo "📦 Model Status:"
         MODELS=$(curl -s "${OLLAMA_URL}/api/tags" 2>/dev/null || echo '{"models":[]}')
         
-        if echo "$MODELS" | grep -q "gemma3:12b-it-q8_0"; then
+        if echo "$MODELS" | grep -q "gemma3:12b-it-qat"; then
             echo "   ✅ Gemma 3 12B (Primary): Available"
         else
             echo "   ❌ Gemma 3 12B (Primary): Not found - run ./setup-models.sh"
