@@ -16,7 +16,7 @@ services:
 
   open-webui-searxng:
     container_name: open-webui-searxng
-    image: docker.io/searxng/searxng:latest
+    image: docker.io/searxng/searxng:2025.8.9-935f3fe
     restart: unless-stopped
     ports:
       - "127.0.0.1:8080:8080"
@@ -26,6 +26,19 @@ services:
       - SEARXNG_BASE_URL=https://${SEARXNG_HOSTNAME:-localhost}/
       - UWSGI_WORKERS=${SEARXNG_UWSGI_WORKERS:-4}
       - UWSGI_THREADS=${SEARXNG_UWSGI_THREADS:-4}
+    healthcheck:
+      test: [
+        "CMD",
+        "wget",
+        "-qO-",
+        "--header=Host: localhost",
+        "--header=X-Forwarded-For: 127.0.0.1",
+        "http://127.0.0.1:8080/search?q=health&format=json"
+      ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
     cap_drop:
       - ALL
     cap_add:
@@ -42,10 +55,14 @@ services:
 
   open-webui-tika:
     container_name: open-webui-tika
-    image: apache/tika:latest
+    build: ./tika
     restart: unless-stopped
     ports:
       - "127.0.0.1:9998:9998"
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xms512m -Xmx4g -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
+      TIKA_SERVER_PORT: "9998"
+      TESSDATA_PREFIX: "/usr/share/tesseract-ocr/4.00/tessdata"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     logging:
@@ -53,6 +70,14 @@ services:
       options:
         max-size: "1m"
         max-file: "1"
+    volumes:
+      - ./tika/tika-config.xml:/tika-config.xml:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9998/version" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
 
   open-webui-osint-tools:
     container_name: open-webui-osint-tools
@@ -93,8 +118,26 @@ services:
     volumes:
       - ./open-webui-litellm-config:/app/config
     environment:
-      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY:-sk-1234}
+      LITELLM_MASTER_KEY: "${LITELLM_MASTER_KEY:-sk-1234}"
+      LITELLM_API_KEY: "${LITELLM_API_KEY:-sk-1234}"
+      OLLAMA_BASE_URL: "${OLLAMA_BASE_URL:-http://host.docker.internal:11434}"
+      DATABASE_URL: "${LITELLM_DATABASE_URL:-postgresql://litellm:litellm@open-webui-litellm-db:5432/litellm}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     command: ["--config", "/app/config/config.yaml", "--port", "4000"]
+    depends_on:
+      - open-webui-litellm-db
+
+  open-webui-litellm-db:
+    container_name: open-webui-litellm-db
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${LITELLM_DB_NAME:-litellm}
+      - POSTGRES_USER=${LITELLM_DB_USER:-litellm}
+      - POSTGRES_PASSWORD=${LITELLM_DB_PASSWORD:-litellm}
+    volumes:
+      - open-webui-litellm-db-data:/var/lib/postgresql/data
   open-webui:
     container_name: open-webui
     image: ghcr.io/open-webui/open-webui:main
@@ -106,75 +149,78 @@ services:
       ENABLE_COMMUNITY_SHARING: "false"
       ENABLE_MESSAGE_RATING: "false"
       ENABLE_EVALUATION_ARENA_MODELS: "false"
-      WEBUI_SECRET_KEY: "${WEBUI_SECRET_KEY:-$(openssl rand -hex 32)}"
-      
+      WEBUI_SECRET_KEY: "${WEBUI_SECRET_KEY:-changeme}"
+
       # Disable Telemetry
       SCARF_NO_ANALYTICS: "true"
       DO_NOT_TRACK: "true"
       ANONYMIZED_TELEMETRY: "false"
-      
+
       # RAG Web Search Configuration
       ENABLE_RAG_WEB_SEARCH: "true"
       RAG_WEB_SEARCH_ENGINE: "searxng"
-      RAG_WEB_SEARCH_RESULT_COUNT: 10
-      RAG_WEB_SEARCH_CONCURRENT_REQUESTS: 10
+      RAG_WEB_SEARCH_RESULT_COUNT: "5"
+      RAG_WEB_SEARCH_CONCURRENT_REQUESTS: "5"
       SEARXNG_QUERY_URL: "http://open-webui-searxng:8080/search?q=<query>"
       RAG_WEB_SEARCH_DOMAIN_FILTER_LIST: ""
-      
+
       # Document Processing with Tika
       ENABLE_RAG_LOCAL_WEB_FETCH: "true"
       TIKA_SERVER_URL: "http://open-webui-tika:9998"
       ENABLE_RAG_WEB_LOADER_SSL_VERIFICATION: "false"
-      
+
       # Try to auto-configure document extraction
       CONTENT_EXTRACTION_ENGINE: "tika"
       DOC_EXTRACTION_ENGINE: "tika"
-      
+
       # RAG Configuration
       ENABLE_RAG_HYBRID_SEARCH: "true"
       RAG_EMBEDDING_ENGINE: "ollama"
       RAG_EMBEDDING_MODEL: "snowflake-arctic-embed2:latest"
-      RAG_RERANKING_MODEL: ""
-      RAG_TOP_K: 5
-      RAG_RELEVANCE_THRESHOLD: 0.0
-      CHUNK_SIZE: 1600
-      CHUNK_OVERLAP: 100
-      
+      RAG_RERANKING_MODEL: "bge-reranker-v2-m3"
+      RAG_TOP_K: "8"
+      RAG_RELEVANCE_THRESHOLD: "0.05"
+      CHUNK_SIZE: "1200"
+      CHUNK_OVERLAP: "200"
+
       # Enhanced File Support
       ENABLE_IMAGE_GENERATION: "true"
       ENABLE_LITELLM: "true"
-      
+
       # Performance & Caching
       REDIS_URL: "redis://open-webui-redis:6379"
       ENABLE_MODEL_FILTER: "true"
-      
+
       # Security Settings
       CORS_ALLOW_ORIGIN: "*"
       WEBUI_AUTH: "true"
       ENABLE_SIGNUP: "true"
       DEFAULT_USER_ROLE: "user"
-      
+
       # Enhanced Integration URLs - External Ollama Support
-      OLLAMA_BASE_URL: "${OLLAMA_BASE_URL:-http://192.168.2.241:11434}"
+      # Use the same default host gateway as LiteLLM for consistency
+      OLLAMA_BASE_URL: "${OLLAMA_BASE_URL:-http://host.docker.internal:11434}"
       LITELLM_BASE_URL: "http://open-webui-litellm:4000"
-      
+      # Use a LiteLLM virtual key (recommended); set via a local .env
+      LITELLM_API_KEY: "${LITELLM_API_KEY:-sk-1234}"
+
       # OpenAPI Tool Servers Configuration
-      OPENAPI_SERVERS_CONFIG: |
+      OPENAPI_SERVERS_CONFIG: |-
         - name: "OSINT Tools"
           url: "http://open-webui-osint-tools:8001"
           description: "OSINT investigation tools including domain analysis, URL parsing, crypto utilities"
         - name: "MCP Proxy"
-          url: "http://open-webui-mcp-proxy:8002"  
+          url: "http://open-webui-mcp-proxy:8002"
           description: "Model Context Protocol tools via OpenAPI proxy"
-      
+
       # Default Model Configuration
       DEFAULT_MODELS: "gemma3:12b-it-qat"
       MODEL_FILTER_ENABLED: "true"
-      
+
       # OSINT & Investigation Features
       ENABLE_RAG_WEB_SEARCH_DOMAIN_FILTER: "true"
       RAG_WEB_SEARCH_WHITELIST_DOMAINS: "archive.org,web.archive.org,duckduckgo.com,startpage.com,searx.space"
-      
+
       # Logging & Monitoring
       LOG_LEVEL: "INFO"
       WEBUI_SESSION_COOKIE_SAME_SITE: "lax"
@@ -203,4 +249,6 @@ volumes:
       device: tmpfs
       o: size=100m
   open-webui-litellm-config:
+    driver: local
+  open-webui-litellm-db-data:
     driver: local

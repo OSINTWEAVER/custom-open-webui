@@ -283,6 +283,17 @@ This configuration includes services specifically chosen for OSINT work:
 - **Redis**: Caching for performance optimization
 - **Your Ollama Server**: Where your models live (external connection)
 
+### Apache Tika (OCR & Deep Extraction)
+
+- Custom image built on Java 21 with Tesseract OCR language packs installed: eng, spa, fra, ara, rus, ukr, pol.
+- Apache Tika Server 3.2.2 with a custom `tika-config.xml` enabling:
+   - Multi-language OCR (`eng+spa+fra+ara+rus+ukr+pol`) with preprocessing
+   - Deep recursive extraction of embedded resources and inline images
+   - Full metadata extraction including XMP and embedded metadata
+   - PDF tuning (OCR AUTO, sortByPosition) and office document extraction
+- Large-file friendly: default JVM heap set to 4G; override via `JAVA_TOOL_OPTIONS`.
+- Healthcheck: `GET /version` on port 9998.
+
 ### 🔧 Built-in Investigation Tools
 
 Pre-configured OpenAPI tool servers for investigation workflows:
@@ -504,11 +515,12 @@ The setup comes pre-configured for optimal RAG performance:
 - **Caching**: Redis for performance optimization
 
 ### RAG Settings
-- Search results: 10 per query
-- Concurrent requests: 10
-- Chunk size: 1600 tokens
-- Chunk overlap: 100 tokens
-- Top-K results: 5
+- Search results: 5 per query
+- Concurrent requests: 5
+- Chunk size: 1200 tokens
+- Chunk overlap: 200 tokens
+- Top-K results: 8
+- Re-ranking: bge-reranker-v2-m3
 
 ## 🔒 Security Features
 
@@ -558,6 +570,28 @@ curl http://YOUR_OLLAMA_IP:11434/api/tags
 If that doesn't work, your containers definitely can't reach it either.
 
 **"External Ollama unreachable"**
+**Service-specific rebuild tips**
+
+- Rebuild only SearXNG when tweaking search config; wait ~5 seconds before tailing logs to avoid transient healthcheck noise.
+- Rebuild only Tika when modifying `tika/Dockerfile` or `tika/tika-config.xml`.
+- Restart only Open WebUI after changing RAG/extraction-related environment variables.
+
+**SearXNG shows unhealthy**
+
+- Upstream engines and strict healthcheck timing can cause an "unhealthy" status even when `/search` works. The healthcheck includes `Host` and `X-Forwarded-For` headers to reduce botdetection noise.
+
+**Tika fails to start or OCR seems skipped**
+
+- Logs should show: "Starting Apache Tika 3.2.2 server" and "Using custom config: /tika-config.xml".
+- Ensure `TESSDATA_PREFIX` is set and the OCR languages list matches installed packs.
+- For very large files, increase heap: set `JAVA_TOOL_OPTIONS=-XX:MaxRAMPercentage=75 -Xms1g -Xmx8g`.
+
+**RAG slow or results seem off**
+
+- Lower `RAG_TOP_K` to 5 to improve latency; raise to 10 for recall.
+- Adjust `RAG_RELEVANCE_THRESHOLD` between 0.02–0.08. Lower values are more inclusive.
+- Temporarily remove reranker to reduce CPU usage; re-enable once cache is warm.
+
 
 Check these common issues:
 - IP address is correct in your `.env` file

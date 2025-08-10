@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Tika 3.x configuration: multi-language OCR, deep embedded extraction, full metadata -->
+<properties>
+  <!-- OCR settings (Tesseract) -->
+  <ocr>
+    <tesseractPath>/usr/bin/tesseract</tesseractPath>
+    <language>eng+spa+fra+ara+rus+ukr+pol</language>
+    <timeoutSeconds>900</timeoutSeconds>
+    <applyOcrToEmbedded>true</applyOcrToEmbedded>
+    <minFileSizeToOcr>0</minFileSizeToOcr>
+    <maxFileSizeToOcr>-1</maxFileSizeToOcr>
+    <enableImagePreprocessing>true</enableImagePreprocessing>
+  </ocr>
+
+  <!-- Auto detect parser and recursive extraction -->
+  <parser>
+    <parserFactory class="org.apache.tika.parser.AutoDetectParser"/>
+    <autoDetectParserConfig>
+      <parseEmbedded>true</parseEmbedded>
+      <maxEmbeddedResources>-1</maxEmbeddedResources>
+      <extractInlineImages>true</extractInlineImages>
+      <includeEmbeddedResourcePath>true</includeEmbeddedResourcePath>
+    </autoDetectParserConfig>
+    <recursiveParserWrapper>
+      <extractEmbeddedDocuments>true</extractEmbeddedDocuments>
+      <includeEmbeddedResourcePath>true</includeEmbeddedResourcePath>
+      <maxEmbeddedResources>-1</maxEmbeddedResources>
+      <maxEmbeddedDepth>-1</maxEmbeddedDepth>
+    </recursiveParserWrapper>
+  </parser>
+
+  <!-- Metadata options -->
+  <metadata>
+    <includeAll>true</includeAll>
+    <includeXMP>true</includeXMP>
+    <includeEmbeddedMetadata>true</includeEmbeddedMetadata>
+  </metadata>
+
+  <!-- Large content handling -->
+  <content>
+    <maxStringLength>-1</maxStringLength>
+  </content>
+
+  <!-- PDF tuning -->
+  <pdf>
+    <ocrStrategy>AUTO</ocrStrategy>
+    <ocrRenderingStrategy>NO_RENDERING</ocrRenderingStrategy>
+    <extractInlineImages>true</extractInlineImages>
+    <sortByPosition>true</sortByPosition>
+    <extractUniqueInlineImagesOnly>false</extractUniqueInlineImagesOnly>
+  </pdf>
+
+  <!-- Office docs -->
+  <office>
+    <extractMacros>true</extractMacros>
+    <extractOLE2ClassNames>true</extractOLE2ClassNames>
+    <extractAllAlternatives>true</extractAllAlternatives>
+    <includeDeletedContent>true</includeDeletedContent>
+  </office>
+
+  <!-- Global limits -->
+  <limits>
+    <maxDepth>-1</maxDepth>
+    <maxEmbeddedResources>-1</maxEmbeddedResources>
+    <maxParseTimeMillis>-1</maxParseTimeMillis>
+  </limits>
+</properties>

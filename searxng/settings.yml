@@ -5,7 +5,7 @@ use_default_settings: true
 server:
   # base_url is defined in the SEARXNG_BASE_URL environment variable, see .env and docker-compose.yml
   secret_key: "your-searxng-secret-key-change-me"
-  limiter: false  # disabled for private OSINT instance
+  limiter: true
   image_proxy: true
   method: "POST"  # More private than GET requests
   default_http_headers:
@@ -14,6 +14,7 @@ server:
     X-Download-Options: noopen
     X-Robots-Tag: noindex, nofollow
     Referrer-Policy: no-referrer
+  Cache-Control: no-store
 
 ui:
   static_use_hash: true
@@ -22,8 +23,11 @@ ui:
   infinite_scroll: false
   center_alignment: false
   cache_url: "https://web.archive.org/web/"
-  
+
 redis:
+  url: redis://open-webui-redis:6379/0
+
+valkey:
   url: redis://open-webui-redis:6379/0
 
 search:
@@ -31,136 +35,23 @@ search:
   safe_search: 0  # No filtering for comprehensive OSINT results
   autocomplete: ""  # Disable autocomplete for privacy
   default_lang: "all"
-  ban_time_on_fail: 5
-  max_ban_time_on_fail: 120
+  # be polite but persistent
+  ban_time_on_fail: 15
+  max_ban_time_on_fail: 900
   suspended_times:
     SearxEngineAccessDenied: 86400
     SearxEngineCaptcha: 86400
     SearxEngineTooManyRequests: 3600
     cf_SearxEngineCaptcha: 86400
     cf_SearxEngineAccessDenied: 86400
+  # concurrency/timeout knobs
+  max_bang_count: 3
+  request_timeout: 8.0
+  max_request_timeout: 12.0
   formats:
     - html
     - json
     - csv
     - rss
 
-# OSINT-focused engines configuration
-engines:
-  # Core privacy search engines
-  - name: duckduckgo
-    engine: duckduckgo
-    shortcut: ddg
-    timeout: 3.0
-    disabled: false
-    
-  - name: startpage
-    engine: startpage
-    shortcut: sp
-    timeout: 4.0
-    disabled: false
-    
-  - name: searx
-    engine: searx
-    shortcut: sx
-    timeout: 3.0
-    disabled: false
-    search_url: https://searx.be/search
-    
-  # Archive and historical data - crucial for OSINT
-  - name: archive.org
-    engine: xpath
-    shortcut: archive
-    timeout: 7.0
-    disabled: false
-    search_url: https://archive.org/search.php?query={query}
-    url_xpath: //a[@class="titleLink"]/@href
-    title_xpath: //a[@class="titleLink"]/text()
-    content_xpath: //div[@class="item-ttl"]//text()
-    
-  - name: wayback machine
-    engine: xpath
-    shortcut: wayback
-    timeout: 7.0
-    disabled: false
-    search_url: https://web.archive.org/web/*/{query}
-    
-  # Academic and research sources
-  - name: arxiv
-    engine: arxiv
-    shortcut: arx
-    timeout: 4.0
-    disabled: false
-    
-  - name: crossref
-    engine: crossref
-    shortcut: cr
-    timeout: 4.0
-    disabled: false
-    
-  # Code and development (useful for technical OSINT)
-  - name: github
-    engine: github
-    shortcut: gh
-    timeout: 4.0
-    disabled: false
-    
-  - name: gitlab
-    engine: gitlab
-    shortcut: gl
-    timeout: 4.0
-    disabled: false
-    
-  # Social media and forums (important for OSINT)
-  - name: reddit
-    engine: reddit
-    shortcut: re
-    timeout: 4.0
-    disabled: false
-    
-  # File search engines
-  - name: files
-    engine: xpath
-    shortcut: files
-    timeout: 4.0
-    disabled: false
-    search_url: https://www.filesearch.link/?q={query}
-    
-  # News sources
-  - name: google news
-    engine: google_news
-    shortcut: gn
-    timeout: 4.0
-    disabled: false
-    
-  # Multimedia
-  - name: youtube
-    engine: youtube_noapi
-    shortcut: yt
-    timeout: 4.0
-    disabled: false
-    
-  - name: vimeo
-    engine: vimeo
-    shortcut: vm
-    timeout: 4.0
-    disabled: false
-    
-  # Maps and location data
-  - name: openstreetmap
-    engine: openstreetmap
-    shortcut: osm
-    timeout: 4.0
-    disabled: false
-    
-  # Disable privacy-invasive engines
-  - name: google
-    disabled: true
-  - name: bing
-    disabled: true
-  - name: yahoo
-    disabled: true
-  - name: yandex
-    disabled: true
-  - name: baidu
-    disabled: true
+# OSINT-focused engines configuration — rely on defaults when enabled above

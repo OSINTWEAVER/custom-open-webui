@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # Check if config file exists, use it; otherwise fall back to command line
 if [ -f /app/config.json ]; then
