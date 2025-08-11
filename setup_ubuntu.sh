@@ -8,6 +8,13 @@ set -e
 
 echo "🐧 Setting up Open WebUI for OSINT Investigations on Ubuntu..."
 
+# Optional argument: custom Ollama URL (e.g., ./setup_ubuntu.sh http://127.0.0.1:11434)
+CUSTOM_OLLAMA="${1:-}"
+OVERRIDE_OLLAMA=false
+if [[ -n "$CUSTOM_OLLAMA" ]]; then
+    OVERRIDE_OLLAMA=true
+fi
+
 # Function to install Docker on Ubuntu
 install_docker() {
     echo "📥 Installing Docker on Ubuntu..."
@@ -109,6 +116,15 @@ fi
 
 echo "✅ Docker Compose is available"
 
+# Validate compose file early
+echo "🧪 Validating docker-compose.yaml ..."
+if ! docker compose -f "$(pwd)/docker-compose.yaml" config >/dev/null 2>&1; then
+    echo "❌ docker-compose.yaml validation failed. Please fix YAML or paths."
+    docker compose -f "$(pwd)/docker-compose.yaml" config || true
+    exit 1
+fi
+echo "✅ Compose file is valid"
+
 # Install required tools if not present
 echo "🔧 Checking required tools..."
 
@@ -132,46 +148,44 @@ fi
 
 echo "✅ All required tools are installed"
 
-# Function to update/pull images
-update_images() {
-    echo "📥 Pulling latest Docker images..."
-    docker compose pull
-    echo "✅ Latest images pulled successfully"
-}
+UPDATE_MODE=false
+CONTAINER_COUNT=$(docker compose ps -q | wc -l | tr -d ' ')
+if [[ -f .env || -d open-webui-data || "$CONTAINER_COUNT" != "0" ]]; then
+    UPDATE_MODE=true
+fi
 
-# Check if this is an update or fresh install
-if [ -f .env ] && [ -d open-webui-data ]; then
-    echo "🔄 Existing installation detected - performing update..."
-    
-    # Stop services
-    echo "⏹️  Stopping services..."
-    docker compose down
-    
-    # Update images
-    update_images
-    
-    # Backup existing data
+if [[ "$UPDATE_MODE" == true ]]; then
+    echo "🔄 Existing installation detected - updating..."
+    echo "⏹️  Bringing down running services..."
+    docker compose down --remove-orphans
+  
+    # Backup existing data after stop
     BACKUP_DIR="backup_$(date +%Y%m%d_%H%M%S)"
     echo "💾 Creating backup: $BACKUP_DIR"
     mkdir -p "$BACKUP_DIR"
-    cp -r open-webui-data "$BACKUP_DIR/" 2>/dev/null || true
-    cp -r open-webui-litellm-config "$BACKUP_DIR/" 2>/dev/null || true
-    cp .env "$BACKUP_DIR/" 2>/dev/null || true
+    [[ -d open-webui-data ]] && cp -r open-webui-data "$BACKUP_DIR/" 2>/dev/null || true
+    [[ -d open-webui-litellm-config ]] && cp -r open-webui-litellm-config "$BACKUP_DIR/" 2>/dev/null || true
+    [[ -f .env ]] && cp .env "$BACKUP_DIR/" 2>/dev/null || true
     echo "✅ Backup created successfully"
-    
-    UPDATE_MODE=true
 else
     echo "🆕 Fresh installation detected..."
-    UPDATE_MODE=false
-    
-    # Pull images for fresh install
-    update_images
 fi
 
+echo "📥 Pulling latest Docker images..."
+docker compose pull
+echo "✅ Latest images pulled successfully"
+
+echo "🛠️  Rebuilding local services with no cache..."
+docker compose build --pull --no-cache
+echo "✅ Images pulled and services built"
+
 # Check external Ollama connectivity
-OLLAMA_URL="${OLLAMA_BASE_URL:-http://192.168.2.241:11434}"
-if [ -f .env ]; then
-    OLLAMA_URL=$(grep "OLLAMA_BASE_URL" .env 2>/dev/null | cut -d'=' -f2 || echo "$OLLAMA_URL")
+# Resolve OLLAMA URL priority: CLI arg > .env > default
+OLLAMA_URL="http://host.docker.internal:11434"
+if [[ "$OVERRIDE_OLLAMA" == true ]]; then
+    OLLAMA_URL="$CUSTOM_OLLAMA"
+elif [[ -f .env ]]; then
+    OLLAMA_URL=$(grep -E "^OLLAMA_BASE_URL=" .env 2>/dev/null | tail -n1 | cut -d'=' -f2- || echo "$OLLAMA_URL")
 fi
 
 echo "🔗 Checking external Ollama server at $OLLAMA_URL..."
@@ -196,23 +210,32 @@ else
 fi
 
 # Create .env file if it doesn't exist
-if [ ! -f .env ]; then
+if [[ ! -f .env ]]; then
     echo "📝 Creating .env file from template..."
     cp .env.example .env
-    
+
     # Generate random secret keys
     WEBUI_SECRET=$(openssl rand -hex 32)
-    LITELLM_MASTER=$(openssl rand -hex 16)
-    LITELLM_SALT=$(openssl rand -hex 16)
-    
-    # Update .env with generated keys
-    sed -i "s/your-secret-key-here-change-me/$WEBUI_SECRET/" .env
-    sed -i "s/your-litellm-master-key-here/sk-$LITELLM_MASTER/" .env
-    sed -i "s/your-litellm-salt-key-here/sk-$LITELLM_SALT/" .env
-    
+    LITELLM_MASTER="sk-$(openssl rand -hex 24)"
+    LITELLM_API="sk-$(openssl rand -hex 20)"
+    SEARXNG_SECRET=$(openssl rand -hex 32)
+
+    # Idempotently set key lines in .env (remove any duplicates, then append)
+    sed -i '/^WEBUI_SECRET_KEY=/d' .env && echo "WEBUI_SECRET_KEY=$WEBUI_SECRET" >> .env
+    sed -i '/^LITELLM_MASTER_KEY=/d' .env && echo "LITELLM_MASTER_KEY=$LITELLM_MASTER" >> .env
+    sed -i '/^LITELLM_API_KEY=/d' .env && echo "LITELLM_API_KEY=$LITELLM_API" >> .env
+    sed -i '/^SEARXNG_SECRET_KEY=/d' .env && echo "SEARXNG_SECRET_KEY=$SEARXNG_SECRET" >> .env
+    sed -i '/^OLLAMA_BASE_URL=/d' .env && echo "OLLAMA_BASE_URL=$OLLAMA_URL" >> .env
+
     echo "✅ Generated secure keys in .env file"
-elif [ "$UPDATE_MODE" = false ]; then
+elif [[ "$UPDATE_MODE" == false ]]; then
     echo "ℹ️  .env file already exists"
+fi
+
+# If user passed a custom Ollama URL and .env exists, persist the override
+if [[ "$OVERRIDE_OLLAMA" == true && -f .env ]]; then
+    echo "📝 Applying custom OLLAMA_BASE_URL to .env: $CUSTOM_OLLAMA"
+    sed -i '/^OLLAMA_BASE_URL=/d' .env && echo "OLLAMA_BASE_URL=$OLLAMA_URL" >> .env
 fi
 
 # Create necessary directories
@@ -242,17 +265,31 @@ echo "🔧 Processing configuration templates..."
 chmod +x process-templates.sh
 ./process-templates.sh
 
-# Build custom OpenAPI tools
-echo "🔨 Building OSINT tools and MCP proxy..."
-docker compose build open-webui-osint-tools open-webui-mcp-proxy
-
-# Start services
-echo "🐳 Starting Docker services..."
-docker compose up -d
+// Start services
+echo "� Starting Docker services..."
+docker compose up -d --force-recreate --remove-orphans
 
 # Wait for services to start
 echo "⏳ Waiting for services to initialize..."
-sleep 30
+sleep 5
+
+# Wait for Tika readiness
+echo "🔍 Waiting for Tika to be ready..."
+TIKA_READY=false
+for i in {1..12}; do
+    if curl -fsS http://127.0.0.1:9998/version >/dev/null 2>&1; then
+        TIKA_READY=true
+        break
+    fi
+    echo "Waiting for Tika to be ready... ($i/12)"
+    sleep 3
+done
+
+if [[ "$TIKA_READY" == true ]]; then
+    echo "✅ Tika is ready (OCR and deep extraction)"
+else
+    echo "⚠️  Tika may not be ready yet, check logs: docker compose logs open-webui-tika"
+fi
 
 # Test OpenAPI tools
 echo "🔍 Testing OpenAPI tools..."
@@ -270,13 +307,13 @@ docker compose ps
 # Test SearXNG OSINT configuration
 echo "🔍 Testing SearXNG OSINT search engines..."
 SEARXNG_READY=false
-for i in {1..15}; do
-    if curl -s http://localhost:8080/search?q=test\&format=json > /dev/null 2>&1; then
+for i in {1..12}; do
+    if curl -fsS "http://localhost:8080/search?q=test&format=json" >/dev/null 2>&1; then
         SEARXNG_READY=true
         break
     fi
-    echo "Waiting for SearXNG to be ready... ($i/15)"
-    sleep 5
+    echo "Waiting for SearXNG to be ready... ($i/12)"
+    sleep 3
 done
 
 if [ "$SEARXNG_READY" = true ]; then
@@ -339,7 +376,7 @@ echo ""
 echo "📋 Services available:"
 echo "   • Open WebUI (OSINT): http://localhost:3000"
 echo "   • SearXNG (Privacy): http://localhost:8080"
-echo "   • LiteLLM Proxy: http://localhost:4000"
+echo "   • LiteLLM Proxy: http://localhost:4010"
 echo "   • Tika Server: http://localhost:9998"
 echo "   • OSINT Tools API: http://localhost:8001/docs"
 echo "   • MCP Proxy API: http://localhost:8002/docs"
