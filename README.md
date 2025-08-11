@@ -132,6 +132,32 @@ chmod +x setup_ubuntu.sh
 ./setup_ubuntu.sh
 ```
 
+#### One-shot copy/paste install (Ubuntu)
+
+Use these single-line commands to install prerequisites, clone, and run the installer in one go.
+
+Default (uses host gateway Ollama if reachable):
+
+```bash
+sudo apt-get update && sudo apt-get install -y git curl && \
+git clone https://github.com/OSINTWEAVER/custom-open-webui.git && \
+cd custom-open-webui && chmod +x setup_ubuntu.sh && \
+./setup_ubuntu.sh
+```
+
+With a custom Ollama URL (override for this run and persisted to .env):
+
+```bash
+sudo apt-get update && sudo apt-get install -y git curl && \
+git clone https://github.com/OSINTWEAVER/custom-open-webui.git && \
+cd custom-open-webui && chmod +x setup_ubuntu.sh && \
+./setup_ubuntu.sh http://192.168.1.123:11434
+```
+
+Notes:
+- The script auto-installs Docker and Docker Compose if missing, and will prompt if Ollama isn’t reachable.
+- Re-running the script acts as an updater: it will stop, pull, rebuild, and restart all services safely.
+
 The script will:
 - Install Docker and Docker Compose if needed
 - Configure the Docker daemon
@@ -276,7 +302,7 @@ This configuration includes services specifically chosen for OSINT work:
 
 - **Open WebUI** (Port 3000): Main chat interface with privacy-focused configuration
 - **SearXNG** (Port 8080): Meta-search engine hitting multiple sources without tracking
-- **LiteLLM Proxy** (Port 4000): Connects to your Ollama server and handles different model types  
+- **LiteLLM Proxy** (Port 4010 host → 4000 container): Connects to your Ollama server and handles different model types  
 - **Apache Tika** (Port 9998): Extracts text from various document formats
 - **OSINT Tools API** (Port 8001): Custom investigation tools via OpenAPI
 - **MCP Proxy** (Port 8002): Model Context Protocol tools via OpenAPI proxy
@@ -406,7 +432,7 @@ After platform startup, you MUST import these tools manually:
 
 - **Open WebUI**: <http://localhost:3000>
 - **SearXNG**: <http://localhost:8080>  
-- **LiteLLM**: <http://localhost:4000>
+- **LiteLLM**: <http://localhost:4010>
 - **Tika Server**: <http://localhost:9998>
 - **External Ollama**: (configured in .env file)
 
